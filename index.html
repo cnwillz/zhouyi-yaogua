@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>周易摇卦</title>
+    <link rel="stylesheet" href="./styles.css?v=2" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="hero">
+        <p class="eyebrow">周易在线摇卦</p>
+        <h1>观象定机，六爻示变</h1>
+        <p class="intro">
+          一念既起，吉凶未彰；六次投铜，卦势自明。循古法取象，自下而上定本卦，动爻所至，再观其变，以察当下气机与后续趋向。
+        </p>
+      </section>
+
+      <section class="panel">
+        <div class="controls">
+          <button id="tossButton" class="button primary">摇一次</button>
+          <button id="autoButton" class="button">一键摇六次</button>
+          <button id="promptButton" class="button">生成解读提示词</button>
+          <button id="copyPromptButton" class="button ghost">复制提示词</button>
+          <button id="resetButton" class="button ghost">重新开始</button>
+        </div>
+
+        <div class="status">
+          <div class="status-card">
+            <span class="label">当前进度</span>
+            <strong id="progress">0 / 6 爻</strong>
+          </div>
+          <div class="status-card">
+            <span class="label">当前状态</span>
+            <strong id="hint">请静心后开始摇卦</strong>
+          </div>
+        </div>
+
+        <div class="issue-box">
+          <label class="issue-label" for="issueInput">所问事由</label>
+          <textarea
+            id="issueInput"
+            class="issue-input"
+            placeholder="可填写本次想问的事情，例如：是否适合近期换工作、这段合作能否继续推进。留空则默认“（无指定事由）”。"
+          ></textarea>
+        </div>
+
+        <div class="workspace">
+          <section class="result-card coins-card">
+            <h2>本次铜板</h2>
+            <div id="coins" class="coins">
+              <div class="coin-placeholder">等待摇卦</div>
+            </div>
+            <p id="lineResult" class="line-result">尚未生成爻象</p>
+          </section>
+
+          <section class="result-card">
+            <h2>六爻记录</h2>
+            <ol id="records" class="records"></ol>
+          </section>
+        </div>
+      </section>
+
+      <section class="hexagrams">
+        <article class="hexagram-card">
+          <div class="card-head">
+            <h2>本卦</h2>
+            <p id="primaryMeta" class="meta">完成六爻后显示</p>
+          </div>
+          <div class="hexagram-summary">
+            <div>
+              <p id="primaryName" class="hexagram-name">待成卦</p>
+              <p id="primaryBrief" class="hexagram-brief">卦成之后见其名与意</p>
+            </div>
+          </div>
+          <div id="primaryHexagram" class="hexagram-lines empty"></div>
+        </article>
+
+        <article class="hexagram-card">
+          <div class="card-head">
+            <h2>变卦</h2>
+            <p id="changedMeta" class="meta">若无变爻，则与本卦相同</p>
+          </div>
+          <div class="hexagram-summary">
+            <div>
+              <p id="changedName" class="hexagram-name">待成卦</p>
+              <p id="changedBrief" class="hexagram-brief">动而后变，其势方显</p>
+            </div>
+          </div>
+          <div id="changedHexagram" class="hexagram-lines empty"></div>
+        </article>
+      </section>
+
+      <section class="notes">
+        <h2>规则说明</h2>
+        <ul>
+          <li>正面记 3，反面记 2，三枚相加得到一个爻。</li>
+          <li>6 为老阴，7 为少阳，8 为少阴，9 为老阳。</li>
+          <li>六爻从下往上生成，所以第一次摇出的是初爻。</li>
+        </ul>
+      </section>
+
+      <section class="prompt-panel">
+        <div class="card-head">
+          <h2>AI 解读提示词</h2>
+          <p id="promptHint" class="meta">完成六爻后可生成</p>
+        </div>
+        <textarea
+          id="promptOutput"
+          class="prompt-output"
+          readonly
+          placeholder="点击“生成解读提示词”后，这里会输出一份可直接交给生成式 AI 的专业解卦提示词。"
+        ></textarea>
+      </section>
+    </main>
+
+    <div id="wizardOverlay" class="wizard-overlay hidden" aria-hidden="true">
+      <div class="wizard-dialog" role="dialog" aria-modal="true" aria-labelledby="wizardTitle">
+        <div class="wizard-head">
+          <div>
+            <p class="wizard-kicker">解读设定</p>
+            <h2 id="wizardTitle">生成提示词前的补充确认</h2>
+          </div>
+          <button id="wizardCloseButton" class="button ghost wizard-close" type="button">关闭</button>
+        </div>
+
+        <div class="wizard-status">
+          <span id="wizardStepText" class="meta">第 1 步</span>
+          <span id="wizardSourceText" class="meta">问题将根据事由自动生成</span>
+        </div>
+
+        <section class="wizard-body">
+          <h3 id="wizardQuestionTitle" class="wizard-question-title"></h3>
+          <p id="wizardQuestionHint" class="wizard-question-hint"></p>
+          <div id="wizardOptions" class="wizard-options"></div>
+        </section>
+
+        <div class="wizard-footer">
+          <button id="wizardPrevButton" class="button ghost" type="button">上一步</button>
+          <button id="wizardNextButton" class="button primary" type="button">下一步</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="./script.js?v=2"></script>
+  </body>
+</html>
