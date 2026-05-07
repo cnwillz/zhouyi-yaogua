@@ -1,6 +1,7 @@
 const tossButton = document.querySelector("#tossButton");
 const autoButton = document.querySelector("#autoButton");
 const promptButton = document.querySelector("#promptButton");
+const directPromptButton = document.querySelector("#directPromptButton");
 const copyPromptButton = document.querySelector("#copyPromptButton");
 const resetButton = document.querySelector("#resetButton");
 const progress = document.querySelector("#progress");
@@ -114,6 +115,17 @@ const hexagramNames = {
   "001100": "小过",
   "101010": "既济",
   "010101": "未济",
+};
+
+const hexagramOrders = {
+  乾: 1, 坤: 2, 屯: 3, 蒙: 4, 需: 5, 讼: 6, 师: 7, 比: 8,
+  小畜: 9, 履: 10, 泰: 11, 否: 12, 同人: 13, 大有: 14, 谦: 15, 豫: 16,
+  随: 17, 蛊: 18, 临: 19, 观: 20, 噬嗑: 21, 贲: 22, 剥: 23, 复: 24,
+  无妄: 25, 大畜: 26, 颐: 27, 大过: 28, 坎: 29, 离: 30, 咸: 31, 恒: 32,
+  遁: 33, 大壮: 34, 晋: 35, 明夷: 36, 家人: 37, 睽: 38, 蹇: 39, 解: 40,
+  损: 41, 益: 42, 夬: 43, 姤: 44, 萃: 45, 升: 46, 困: 47, 井: 48,
+  革: 49, 鼎: 50, 震: 51, 艮: 52, 渐: 53, 归妹: 54, 丰: 55, 旅: 56,
+  巽: 57, 兑: 58, 涣: 59, 节: 60, 中孚: 61, 小过: 62, 既济: 63, 未济: 64,
 };
 
 const hexagramBriefs = {
@@ -532,6 +544,75 @@ function buildAnswerSummary(answerMap) {
     .join("\n");
 }
 
+function getLinePolarityText(line) {
+  return line.binary === 1 ? "阳" : "阴";
+}
+
+function getLineMovingText(line) {
+  return line.isMoving ? "变爻" : "静爻";
+}
+
+function getMovingLinePositions(linesList) {
+  return linesList
+    .map((line, index) => (line.isMoving ? index + 1 : null))
+    .filter(Boolean);
+}
+
+function getInterpretationRule(linesList) {
+  const movingPositions = getMovingLinePositions(linesList);
+  const count = movingPositions.length;
+
+  if (count === 0) return "0个变爻：以本卦卦辞为主";
+  if (count === 1) return "1个变爻：以变爻爻辞为主";
+  if (count === 2) return "2个变爻：以两个变爻爻辞为主，以下爻为先";
+  if (count === 3) return "3个变爻：本卦与变卦并看，以本卦为主、变卦为辅";
+  if (count === 4) return "4个变爻：以两个不变爻爻辞为主，以下爻为先";
+  if (count === 5) return "5个变爻：以唯一不变爻爻辞为主";
+  return "6个变爻：若为乾坤看用九用六，其余以变卦卦辞为主";
+}
+
+function buildDirectTemplatePrompt(context) {
+  const issueText = issueInput.value.trim() || "（未指定事由）";
+  const { lines: sixLines, related } = context;
+  const primaryOrder = hexagramOrders[related.primary.name] || "?";
+  const changedOrder = hexagramOrders[related.changed.name] || "?";
+  const movingPositions = getMovingLinePositions(sixLines);
+  const movingPositionText = movingPositions.length ? movingPositions.join("、") : "无";
+  const lineDetails = sixLines
+    .map(
+      (line, index) =>
+        `第${index + 1}爻（${lineNames[index]}）：${getLinePolarityText(line)}，${getLineMovingText(line)}`,
+    )
+    .join("\n");
+
+  return `你是一位精通周易的专业易经解卦师。请用通俗易懂的现代白话解释，避免晦涩术语，让没有易学基础的人也能理解；态度客观中立，不偏不倚地分析卦象含义，如实呈现吉凶利弊。
+用户通过三枚铜钱摇卦法进行了一次占卜，请根据以下卦象信息进行详细解析。
+占卜事由
+${issueText}
+
+卦象信息
+\t•\t本卦：${related.primary.name}（第${primaryOrder}卦）
+\t•\t卦码：${context.primaryBits.join("")}（从初爻到上爻，1为阳爻，0为阴爻）
+\t•\t变卦：${related.changed.name}（第${changedOrder}卦）
+\t•\t变爻位置：${movingPositionText}
+\t•\t各爻详情（从初爻到上爻）：
+${lineDetails}
+\t•\t解卦规则：${getInterpretationRule(sixLines)}
+关联卦象
+\t•\t互卦：${related.mutual.name}
+\t•\t错卦：${related.opposite.name}
+\t•\t综卦：${related.reversed.name}
+解析要求
+请按照以下结构进行解析：
+\t1.\t卦象总论：简要说明本卦的核心含义和整体态势
+\t2.\t事由分析：结合用户的具体问题，分析卦象与事由的关联
+\t3.\t变爻解读：重点解析变爻的爻辞含义及其对事由的指导意义
+\t4.\t变卦启示：如有变卦，分析事态的发展趋势和变化方向
+\t5.\t关联卦象参考：从互卦、错卦、综卦的角度补充分析
+\t6.\t综合建议：给出具体可行的建议和行动指南
+请用通俗易懂的现代白话解释，避免晦涩术语，让没有易学基础的人也能理解；态度客观中立，不偏不倚地分析卦象含义，如实呈现吉凶利弊。`;
+}
+
 function buildPrompt(context, wizardAnswers) {
   const { lines: sixLines, movingLines, hasMoving, related } = context;
   const issueText = issueInput.value.trim() || "（无指定事由）";
@@ -641,6 +722,7 @@ function updateSummary() {
   tossButton.disabled = complete;
   autoButton.disabled = complete;
   promptButton.disabled = !complete;
+  directPromptButton.disabled = !complete;
   copyPromptButton.disabled = !promptOutput.value.trim();
 
   if (!complete) {
@@ -819,6 +901,21 @@ function finalizePromptFromWizard() {
   closeWizard();
 }
 
+function generateDirectTemplatePrompt() {
+  const context = getReadingContext();
+  if (!context) {
+    promptOutput.value = "请先完成六次摇卦，再按固定模板生成提示词。";
+    promptHint.textContent = "当前卦象未完成";
+    copyPromptButton.disabled = false;
+    return;
+  }
+
+  promptOutput.value = buildDirectTemplatePrompt(context);
+  promptOutput.scrollTop = 0;
+  promptHint.textContent = "固定模板提示词已生成";
+  copyPromptButton.disabled = false;
+}
+
 async function copyPrompt() {
   const text = promptOutput.value.trim();
   if (!text) return;
@@ -859,6 +956,7 @@ async function autoGenerate() {
 tossButton.addEventListener("click", addLine);
 autoButton.addEventListener("click", autoGenerate);
 promptButton.addEventListener("click", startPromptWizard);
+directPromptButton.addEventListener("click", generateDirectTemplatePrompt);
 copyPromptButton.addEventListener("click", copyPrompt);
 resetButton.addEventListener("click", resetAll);
 wizardCloseButton.addEventListener("click", closeWizard);
