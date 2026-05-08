@@ -4,59 +4,64 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>周易摇卦</title>
-    <link rel="stylesheet" href="./styles.css?v=3" />
+    <link rel="stylesheet" href="./styles.css?v=4" />
   </head>
   <body>
     <main class="app">
+      <div class="lang-toolbar">
+        <button type="button" id="langToggle" class="button ghost lang-toggle" data-i18n-aria="lang.aria"></button>
+      </div>
+
       <section class="hero">
-        <p class="eyebrow">周易在线摇卦</p>
-        <h1>观象定机，六爻示变</h1>
-        <p class="intro">
+        <p class="eyebrow" data-i18n="hero.eyebrow">周易在线摇卦</p>
+        <h1 data-i18n="hero.title">观象定机，六爻示变</h1>
+        <p class="intro" data-i18n="hero.intro">
           一念既起，吉凶未彰；六次投铜，卦势自明。循古法取象，自下而上定本卦，动爻所至，再观其变，以察当下气机与后续趋向。
         </p>
       </section>
 
       <section class="panel">
         <div class="controls">
-          <button id="tossButton" class="button primary">摇一次</button>
-          <button id="autoButton" class="button">一键摇六次</button>
-          <button id="promptButton" class="button">生成解读提示词</button>
-          <button id="directPromptButton" class="button">按固定模板生成</button>
-          <button id="copyPromptButton" class="button ghost">复制提示词</button>
-          <button id="resetButton" class="button ghost">重新开始</button>
+          <button id="tossButton" class="button primary" data-i18n="btn.toss">摇一次</button>
+          <button id="autoButton" class="button" data-i18n="btn.auto">一键摇六次</button>
+          <button id="promptButton" class="button" data-i18n="btn.prompt">生成解读提示词</button>
+          <button id="directPromptButton" class="button" data-i18n="btn.directPrompt">按固定模板生成</button>
+          <button id="copyPromptButton" class="button ghost" data-i18n="btn.copy">复制提示词</button>
+          <button id="resetButton" class="button ghost" data-i18n="btn.reset">重新开始</button>
         </div>
 
         <div class="status">
           <div class="status-card">
-            <span class="label">当前进度</span>
+            <span class="label" data-i18n="status.progress">当前进度</span>
             <strong id="progress">0 / 6 爻</strong>
           </div>
           <div class="status-card">
-            <span class="label">当前状态</span>
+            <span class="label" data-i18n="status.state">当前状态</span>
             <strong id="hint">请静心后开始摇卦</strong>
           </div>
         </div>
 
         <div class="issue-box">
-          <label class="issue-label" for="issueInput">所问事由</label>
+          <label class="issue-label" for="issueInput" data-i18n="issue.label">所问事由</label>
           <textarea
             id="issueInput"
             class="issue-input"
+            data-i18n-placeholder="issue.placeholder"
             placeholder="可填写本次想问的事情，例如：是否适合近期换工作、这段合作能否继续推进。留空则默认“（无指定事由）”。"
           ></textarea>
         </div>
 
         <div class="workspace">
           <section class="result-card coins-card">
-            <h2>本次铜板</h2>
+            <h2 data-i18n="coins.title">本次铜板</h2>
             <div id="coins" class="coins">
-              <div class="coin-placeholder">等待摇卦</div>
+              <div class="coin-placeholder" data-i18n="coins.waiting">等待摇卦</div>
             </div>
-            <p id="lineResult" class="line-result">尚未生成爻象</p>
+            <p id="lineResult" class="line-result" data-i18n="line.noneYet">尚未生成爻象</p>
           </section>
 
           <section class="result-card">
-            <h2>六爻记录</h2>
+            <h2 data-i18n="records.title">六爻记录</h2>
             <ol id="records" class="records"></ol>
           </section>
         </div>
@@ -65,13 +70,13 @@
       <section class="hexagrams">
         <article class="hexagram-card">
           <div class="card-head">
-            <h2>本卦</h2>
-            <p id="primaryMeta" class="meta">完成六爻后显示</p>
+            <h2 data-i18n="hex.primary">本卦</h2>
+            <p id="primaryMeta" class="meta" data-i18n="hex.metaPending">完成六爻后显示</p>
           </div>
           <div class="hexagram-summary">
             <div>
-              <p id="primaryName" class="hexagram-name">待成卦</p>
-              <p id="primaryBrief" class="hexagram-brief">卦成之后见其名与意</p>
+              <p id="primaryName" class="hexagram-name" data-i18n="hex.namePending">待成卦</p>
+              <p id="primaryBrief" class="hexagram-brief" data-i18n="hex.briefPrimaryPending">卦成之后见其名与意</p>
             </div>
           </div>
           <div id="primaryHexagram" class="hexagram-lines empty"></div>
@@ -79,13 +84,13 @@
 
         <article class="hexagram-card">
           <div class="card-head">
-            <h2>变卦</h2>
-            <p id="changedMeta" class="meta">若无变爻，则与本卦相同</p>
+            <h2 data-i18n="hex.changed">变卦</h2>
+            <p id="changedMeta" class="meta" data-i18n="hex.metaNoChange">若无变爻，则与本卦相同</p>
           </div>
           <div class="hexagram-summary">
             <div>
-              <p id="changedName" class="hexagram-name">待成卦</p>
-              <p id="changedBrief" class="hexagram-brief">动而后变，其势方显</p>
+              <p id="changedName" class="hexagram-name" data-i18n="hex.namePending">待成卦</p>
+              <p id="changedBrief" class="hexagram-brief" data-i18n="hex.briefChangedPending">动而后变，其势方显</p>
             </div>
           </div>
           <div id="changedHexagram" class="hexagram-lines empty"></div>
@@ -93,23 +98,24 @@
       </section>
 
       <section class="notes">
-        <h2>规则说明</h2>
+        <h2 data-i18n="notes.title">规则说明</h2>
         <ul>
-          <li>正面记 3，反面记 2，三枚相加得到一个爻。</li>
-          <li>6 为老阴，7 为少阳，8 为少阴，9 为老阳。</li>
-          <li>六爻从下往上生成，所以第一次摇出的是初爻。</li>
+          <li data-i18n="notes.r1">正面记 3，反面记 2，三枚相加得到一个爻。</li>
+          <li data-i18n="notes.r2">6 为老阴，7 为少阳，8 为少阴，9 为老阳。</li>
+          <li data-i18n="notes.r3">六爻从下往上生成，所以第一次摇出的是初爻。</li>
         </ul>
       </section>
 
       <section class="prompt-panel">
         <div class="card-head">
-          <h2>AI 解读提示词</h2>
-          <p id="promptHint" class="meta">完成六爻后可生成</p>
+          <h2 data-i18n="prompt.title">AI 解读提示词</h2>
+          <p id="promptHint" class="meta" data-i18n="prompt.hintIdle">完成六爻后可生成</p>
         </div>
         <textarea
           id="promptOutput"
           class="prompt-output"
           readonly
+          data-i18n-placeholder="prompt.placeholder"
           placeholder="点击“生成解读提示词”后，这里会输出一份可直接交给生成式 AI 的专业解卦提示词。"
         ></textarea>
       </section>
@@ -119,10 +125,10 @@
       <div class="wizard-dialog" role="dialog" aria-modal="true" aria-labelledby="wizardTitle">
         <div class="wizard-head">
           <div>
-            <p class="wizard-kicker">解读设定</p>
-            <h2 id="wizardTitle">生成提示词前的补充确认</h2>
+            <p class="wizard-kicker" data-i18n="wizard.kicker">解读设定</p>
+            <h2 id="wizardTitle" data-i18n="wizard.title">生成提示词前的补充确认</h2>
           </div>
-          <button id="wizardCloseButton" class="button ghost wizard-close" type="button">关闭</button>
+          <button id="wizardCloseButton" class="button ghost wizard-close" type="button" data-i18n="wizard.close">关闭</button>
         </div>
 
         <div class="wizard-status">
@@ -137,12 +143,13 @@
         </section>
 
         <div class="wizard-footer">
-          <button id="wizardPrevButton" class="button ghost" type="button">上一步</button>
-          <button id="wizardNextButton" class="button primary" type="button">下一步</button>
+          <button id="wizardPrevButton" class="button ghost" type="button" data-i18n="wizard.prev">上一步</button>
+          <button id="wizardNextButton" class="button primary" type="button" data-i18n="wizard.next">下一步</button>
         </div>
       </div>
     </div>
 
-    <script src="./script.js?v=3"></script>
+    <script src="./i18n.js?v=1"></script>
+    <script src="./script.js?v=4"></script>
   </body>
 </html>

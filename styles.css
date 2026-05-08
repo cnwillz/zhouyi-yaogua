@@ -42,6 +42,17 @@ body::before {
   padding: 48px 0 72px;
 }
 
+.lang-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.lang-toggle {
+  font-size: 0.9rem;
+  padding: 8px 14px;
+}
+
 .hero {
   margin-bottom: 28px;
 }

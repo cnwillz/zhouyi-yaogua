@@ -29,15 +29,24 @@ const wizardQuestionHint = document.querySelector("#wizardQuestionHint");
 const wizardOptions = document.querySelector("#wizardOptions");
 const wizardPrevButton = document.querySelector("#wizardPrevButton");
 const wizardNextButton = document.querySelector("#wizardNextButton");
+const langToggle = document.querySelector("#langToggle");
 
-const lineLabels = {
-  6: "老阴",
-  7: "少阳",
-  8: "少阴",
-  9: "老阳",
-};
+const I18n = window.ZhouyiI18n;
+function t(key, vars) {
+  return I18n.t(key, vars);
+}
 
-const lineNames = ["初爻", "二爻", "三爻", "四爻", "五爻", "上爻"];
+function getLineLabels() {
+  return I18n.getLocale() === "en"
+    ? { 6: "Old Yin", 7: "Young Yang", 8: "Young Yin", 9: "Old Yang" }
+    : { 6: "老阴", 7: "少阳", 8: "少阴", 9: "老阳" };
+}
+
+function getLineNames() {
+  return I18n.getLocale() === "en"
+    ? ["Line 1 (bottom)", "Line 2", "Line 3", "Line 4", "Line 5", "Line 6 (top)"]
+    : ["初爻", "二爻", "三爻", "四爻", "五爻", "上爻"];
+}
 
 const trigramNames = {
   "111": "乾",
@@ -196,36 +205,64 @@ const hexagramBriefs = {
 };
 
 let lines = [];
+/** Last three-coin face values from the most recent cast (for re-rendering when language changes). */
+let lastCastCoins = null;
 let wizardState = null;
 
-const DEFAULT_UNKNOWN_OPTION = {
-  value: "不明确",
-  label: "不明确",
-  description: "眼下还说不准，先按信息不足处理。",
-};
+function getDefaultUnknownOption() {
+  return I18n.getLocale() === "en"
+    ? { value: "unclear", label: "Unclear", description: "Not sure yet; treat as insufficient information for now." }
+    : { value: "不明确", label: "不明确", description: "眼下还说不准，先按信息不足处理。" };
+}
 
-const styleQuestion = {
-  id: "reading_style",
-  title: "你希望这次解读更接近哪种风格？",
-  hint: "这是第一步。不同风格会影响提示词的语气、力度和安抚程度。",
-  options: [
-    {
-      value: "温柔安抚型",
-      label: "温柔安抚型",
-      description: "更重体察、陪伴和安定感，适合情绪较重或较敏感的问题。",
-    },
-    {
-      value: "平衡洞察型",
-      label: "平衡洞察型",
-      description: "兼顾温度与判断，既不回避问题，也不过分锋利。",
-    },
-    {
-      value: "清醒点破型",
-      label: "清醒点破型",
-      description: "更直接指出关键症结，但仍保持分寸和礼貌。",
-    },
-  ],
-};
+function getStyleQuestion() {
+  if (I18n.getLocale() === "en") {
+    return {
+      id: "reading_style",
+      title: "Which tone should this reading take?",
+      hint: "This step shapes warmth, directness, and how firm the advice feels.",
+      options: [
+        {
+          value: "gentle",
+          label: "Gentle & grounding",
+          description: "Emphasize care, pacing, and steadiness—useful when feelings run high.",
+        },
+        {
+          value: "balanced",
+          label: "Balanced insight",
+          description: "Blend warmth and judgment; clear without being harsh.",
+        },
+        {
+          value: "direct",
+          label: "Clear & direct",
+          description: "Name the crux plainly while staying respectful and measured.",
+        },
+      ],
+    };
+  }
+  return {
+    id: "reading_style",
+    title: "你希望这次解读更接近哪种风格？",
+    hint: "这是第一步。不同风格会影响提示词的语气、力度和安抚程度。",
+    options: [
+      {
+        value: "gentle",
+        label: "温柔安抚型",
+        description: "更重体察、陪伴和安定感，适合情绪较重或较敏感的问题。",
+      },
+      {
+        value: "balanced",
+        label: "平衡洞察型",
+        description: "兼顾温度与判断，既不回避问题，也不过分锋利。",
+      },
+      {
+        value: "direct",
+        label: "清醒点破型",
+        description: "更直接指出关键症结，但仍保持分寸和礼貌。",
+      },
+    ],
+  };
+}
 
 const AI_CONFIG_STORAGE_KEY = "zhouyi_ai_question_config";
 
@@ -234,12 +271,13 @@ function tossCoins() {
 }
 
 function describeLine(sum) {
+  const labels = getLineLabels();
   const isYang = sum === 7 || sum === 9;
   const isMoving = sum === 6 || sum === 9;
 
   return {
     value: sum,
-    label: lineLabels[sum],
+    label: labels[sum],
     binary: isYang ? 1 : 0,
     changedBinary: isMoving ? (isYang ? 0 : 1) : isYang ? 1 : 0,
     isYang,
@@ -250,16 +288,23 @@ function describeLine(sum) {
 function renderCoins(values) {
   coins.innerHTML = values
     .map((value, index) => {
-      const face = value === 3 ? "正面 3" : "反面 2";
-      return `<div class="coin" aria-label="第${index + 1}枚铜板">${face}</div>`;
+      const face = value === 3 ? t("coins.heads") : t("coins.tails");
+      const aria = t("coins.coinAria", { n: index + 1 });
+      return `<div class="coin" aria-label="${aria}">${face}</div>`;
     })
     .join("");
 }
 
 function renderRecords() {
+  const names = getLineNames();
   records.innerHTML = lines
     .map((line, index) => {
-      return `<li>${lineNames[index]}：<strong>${line.label}</strong>（${line.value}）</li>`;
+      const itemHtml = t("records.lineItem", {
+        name: names[index],
+        label: line.label,
+        value: line.value,
+      });
+      return `<li>${itemHtml}</li>`;
     })
     .join("");
 }
@@ -291,11 +336,29 @@ function renderHexagram(target, values, movingValues = []) {
 
 function getHexagramName(bits) {
   const key = bits.slice().reverse().join("");
-  return hexagramNames[key] || "未知卦";
+  return hexagramNames[key] || t("unknownHex");
 }
 
 function getTrigramName(bits) {
-  return trigramNames[bits.join("")] || "未知";
+  const key = bits.join("");
+  if (I18n.getLocale() === "en") {
+    return I18n.TRIGRAM_NAMES_EN[key] || t("unknownTri");
+  }
+  return trigramNames[key] || t("unknownTri");
+}
+
+function getHexagramBrief(zhName) {
+  if (I18n.getLocale() === "en" && I18n.HEXAGRAM_BRIEF_EN[zhName]) {
+    return I18n.HEXAGRAM_BRIEF_EN[zhName];
+  }
+  return hexagramBriefs[zhName] || t("briefFallback");
+}
+
+/** Display title for cards / meta: zh uses 「乾卦」; en uses English title + Chinese. */
+function formatHexCardTitle(zhName) {
+  if (I18n.getLocale() === "zh") return `${zhName}${t("hex.suffix")}`;
+  const en = I18n.HEXAGRAM_TITLE_EN[zhName];
+  return en ? `${en} (${zhName})` : zhName;
 }
 
 function createHexagramInfo(bits, label) {
@@ -307,7 +370,7 @@ function createHexagramInfo(bits, label) {
     label,
     bits,
     name,
-    brief: hexagramBriefs[name] || "观象取义，仍需结合爻变",
+    brief: getHexagramBrief(name),
     key: bits.slice().reverse().join(""),
     lowerTrigram: getTrigramName(lowerBits),
     upperTrigram: getTrigramName(upperBits),
@@ -327,11 +390,11 @@ function getRelatedHexagrams(primaryBits, changedBits) {
   const reversedBits = primaryBits.slice().reverse();
 
   return {
-    primary: createHexagramInfo(primaryBits, "本卦"),
-    changed: createHexagramInfo(changedBits, "变卦"),
-    mutual: createHexagramInfo(mutualBits, "互卦"),
-    opposite: createHexagramInfo(oppositeBits, "错卦"),
-    reversed: createHexagramInfo(reversedBits, "综卦（总卦）"),
+    primary: createHexagramInfo(primaryBits, t("labels.primaryShort")),
+    changed: createHexagramInfo(changedBits, t("labels.changedShort")),
+    mutual: createHexagramInfo(mutualBits, t("labels.mutualShort")),
+    opposite: createHexagramInfo(oppositeBits, t("labels.oppositeShort")),
+    reversed: createHexagramInfo(reversedBits, t("labels.reversedShort")),
   };
 }
 
@@ -341,16 +404,19 @@ function getReadingContext() {
   const primaryBits = lines.map((line) => line.binary);
   const changedBits = lines.map((line) => line.changedBinary);
   const related = getRelatedHexagrams(primaryBits, changedBits);
+  const names = getLineNames();
+  const py = t("polarity.yang");
+  const pin = t("polarity.yin");
   const movingLines = lines
     .map((line, index) =>
       line.isMoving
         ? {
             index,
-            name: lineNames[index],
+            name: names[index],
             label: line.label,
             value: line.value,
-            from: line.binary === 1 ? "阳" : "阴",
-            to: line.changedBinary === 1 ? "阳" : "阴",
+            from: line.binary === 1 ? py : pin,
+            to: line.changedBinary === 1 ? py : pin,
           }
         : null,
     )
@@ -378,7 +444,7 @@ function getAiQuestionConfig() {
   }
 }
 
-function buildLocalQuestionSet(issueText) {
+function buildLocalQuestionSetZh(issueText) {
   const issue = issueText.trim();
   const hasCareerKeywords = /工作|事业|职业|岗位|跳槽|升职|合作|项目|创业/.test(issue);
   const hasLoveKeywords = /感情|关系|喜欢|复合|婚|对象|暧昧|恋爱/.test(issue);
@@ -394,7 +460,7 @@ function buildLocalQuestionSet(issueText) {
       { value: "短期", label: "短期", description: "更关注最近 1 到 4 周内的变化。" },
       { value: "中期", label: "中期", description: "更关注接下来 1 到 3 个月的走势。" },
       { value: "长期", label: "长期", description: "更关心更长线的方向与结构。" },
-      DEFAULT_UNKNOWN_OPTION,
+      getDefaultUnknownOption(),
     ],
   });
 
@@ -407,7 +473,7 @@ function buildLocalQuestionSet(issueText) {
         { value: "机会与发展", label: "机会与发展", description: "更关心有没有上升空间、转机或新机会。" },
         { value: "稳定与风险", label: "稳定与风险", description: "更关心是否会踩坑、是否值得继续投入。" },
         { value: "合作与人事", label: "合作与人事", description: "更关心团队关系、上级态度或合作默契。" },
-        DEFAULT_UNKNOWN_OPTION,
+        getDefaultUnknownOption(),
       ],
     });
   } else if (hasLoveKeywords) {
@@ -419,7 +485,7 @@ function buildLocalQuestionSet(issueText) {
         { value: "暧昧试探中", label: "暧昧试探中", description: "彼此还在观察，尚未真正落定。" },
         { value: "已有关系但不稳", label: "已有关系但不稳", description: "已经有连接，但存在顾虑或拉扯。" },
         { value: "分开后仍有牵挂", label: "分开后仍有牵挂", description: "更关注复合、回头或彼此是否仍有心。" },
-        DEFAULT_UNKNOWN_OPTION,
+        getDefaultUnknownOption(),
       ],
     });
   } else if (hasMoneyKeywords) {
@@ -431,7 +497,7 @@ function buildLocalQuestionSet(issueText) {
         { value: "能否进账", label: "能否进账", description: "更关心收益、回款或结果能否落袋。" },
         { value: "风险会不会扩大", label: "风险会不会扩大", description: "更担心损失、拖欠或连带问题。" },
         { value: "该不该继续投入", label: "该不该继续投入", description: "更想判断是否值得继续花钱、花力气或加码。" },
-        DEFAULT_UNKNOWN_OPTION,
+        getDefaultUnknownOption(),
       ],
     });
   } else {
@@ -443,7 +509,7 @@ function buildLocalQuestionSet(issueText) {
         { value: "结果走向", label: "结果走向", description: "更想知道事情最终大致会往哪边发展。" },
         { value: "当下该怎么做", label: "当下该怎么做", description: "更想知道眼前先做什么比较合适。" },
         { value: "对方或外部态度", label: "对方或外部态度", description: "更关心别人怎么看、外部条件如何变化。" },
-        DEFAULT_UNKNOWN_OPTION,
+        getDefaultUnknownOption(),
       ],
     });
   }
@@ -457,7 +523,7 @@ function buildLocalQuestionSet(issueText) {
         { value: "是，近期必须决定", label: "是，近期必须决定", description: "时间比较紧，希望尽快看清方向。" },
         { value: "还可以再观察", label: "还可以再观察", description: "暂时不急，允许再多看一些迹象。" },
         { value: "外部在推动我决定", label: "外部在推动我决定", description: "不是完全自发，是被环境或别人推着走。" },
-        DEFAULT_UNKNOWN_OPTION,
+        getDefaultUnknownOption(),
       ],
     });
   }
@@ -470,16 +536,215 @@ function buildLocalQuestionSet(issueText) {
       { value: "焦虑犹豫", label: "焦虑犹豫", description: "担心走错、想太多，心里比较悬着。" },
       { value: "理性观望", label: "理性观望", description: "希望冷静判断，不想被情绪带着走。" },
       { value: "已有倾向想确认", label: "已有倾向想确认", description: "心里大概有答案，只是想再确认一下。" },
-      DEFAULT_UNKNOWN_OPTION,
+      getDefaultUnknownOption(),
     ],
   });
 
   return questions.slice(0, 4);
 }
 
+function buildLocalQuestionSetEn(issueText) {
+  const issue = issueText.trim();
+  const hasCareerKeywords =
+    /job|work|career|business|startup|promotion|office|boss|partner|project|role|hire|resume/i.test(issue);
+  const hasLoveKeywords =
+    /love|relationship|dating|marriage|partner|romance|break|ex|crush|family|friend/i.test(issue);
+  const hasMoneyKeywords =
+    /money|finance|invest|income|debt|loan|salary|budget|profit|trade|market|rent/i.test(issue);
+  const hasDecisionKeywords =
+    /should i|whether|choose|decision|decide|worth it|right time|better to|if i/i.test(issue);
+  const questions = [];
+
+  questions.push({
+    id: "time_focus",
+    title: "Which time horizon matters most for this reading?",
+    hint: "Different horizons shift where the interpretation lands.",
+    options: [
+      {
+        value: "short",
+        label: "Near term",
+        description: "Roughly the next 1–4 weeks.",
+      },
+      {
+        value: "medium",
+        label: "Mid term",
+        description: "Roughly the next 1–3 months.",
+      },
+      {
+        value: "long",
+        label: "Longer arc",
+        description: "Direction and structure beyond a few months.",
+      },
+      getDefaultUnknownOption(),
+    ],
+  });
+
+  if (hasCareerKeywords) {
+    questions.push({
+      id: "career_goal",
+      title: "What worries you most about this situation?",
+      hint: "This narrows the reading to what actually matters to you.",
+      options: [
+        {
+          value: "growth",
+          label: "Growth & opportunity",
+          description: "Upside, openings, and whether things can move upward.",
+        },
+        {
+          value: "risk",
+          label: "Stability & downside risk",
+          description: "Whether it is safe to stay or likely to turn sour.",
+        },
+        {
+          value: "people",
+          label: "People & collaboration",
+          description: "Managers, peers, partners, trust, and coordination.",
+        },
+        getDefaultUnknownOption(),
+      ],
+    });
+  } else if (hasLoveKeywords) {
+    questions.push({
+      id: "relationship_state",
+      title: "Which state fits this relationship best right now?",
+      hint: "Stage changes what the hexagram emphasizes.",
+      options: [
+        {
+          value: "early",
+          label: "Early / uncertain",
+          description: "Still feeling things out; nothing firm yet.",
+        },
+        {
+          value: "strained",
+          label: "Together but shaky",
+          description: "There is a bond, but tension or doubt remains.",
+        },
+        {
+          value: "post_split",
+          label: "After a break or distance",
+          description: "Thinking about return, closure, or lingering attachment.",
+        },
+        getDefaultUnknownOption(),
+      ],
+    });
+  } else if (hasMoneyKeywords) {
+    questions.push({
+      id: "money_priority",
+      title: "What is your main financial concern here?",
+      hint: "Money readings split between upside, stability, and stopping losses.",
+      options: [
+        {
+          value: "inflow",
+          label: "Cash-in / payoff",
+          description: "Whether money will actually arrive or results will land.",
+        },
+        {
+          value: "risk",
+          label: "Risk spreading",
+          description: "Losses, delays, obligations, or downside exposure.",
+        },
+        {
+          value: "commit",
+          label: "Whether to keep investing",
+          description: "Time, money, or energy—worth staying in or not.",
+        },
+        getDefaultUnknownOption(),
+      ],
+    });
+  } else {
+    questions.push({
+      id: "concern_type",
+      title: "What kind of guidance do you want most?",
+      hint: "Pick the closest fit even if the question is vague.",
+      options: [
+        {
+          value: "outcome",
+          label: "Outcome trend",
+          description: "Where things are heading overall.",
+        },
+        {
+          value: "next_step",
+          label: "What to do next",
+          description: "Concrete moves for the near term.",
+        },
+        {
+          value: "others",
+          label: "Others / environment",
+          description: "How external attitudes or conditions may shift.",
+        },
+        getDefaultUnknownOption(),
+      ],
+    });
+  }
+
+  if (hasDecisionKeywords || !issue) {
+    questions.push({
+      id: "decision_pressure",
+      title: "Is a firm decision forced soon?",
+      hint: "Urgency affects whether the reading leans exploratory or decisive.",
+      options: [
+        {
+          value: "urgent",
+          label: "Yes—soon",
+          description: "You need clarity quickly.",
+        },
+        {
+          value: "wait",
+          label: "Can still watch and wait",
+          description: "More room to gather signals.",
+        },
+        {
+          value: "pushed",
+          label: "Pushed by circumstances",
+          description: "Pressure comes more from outside than inside.",
+        },
+        getDefaultUnknownOption(),
+      ],
+    });
+  }
+
+  questions.push({
+    id: "emotional_state",
+    title: "Which mindset matches you best right now?",
+    hint: "Tone of the advice should match how you can hear it.",
+    options: [
+      {
+        value: "anxious",
+        label: "Anxious / hesitant",
+        description: "Worried about choosing wrong; mind loops.",
+      },
+      {
+        value: "cool",
+        label: "Calm / analytical",
+        description: "Want clarity without drama.",
+      },
+      {
+        value: "leaning",
+        label: "Already leaning—want confirmation",
+        description: "You have a hunch and want a sanity check.",
+      },
+      getDefaultUnknownOption(),
+    ],
+  });
+
+  return questions.slice(0, 4);
+}
+
+function buildLocalQuestionSet(issueText) {
+  return I18n.getLocale() === "en" ? buildLocalQuestionSetEn(issueText) : buildLocalQuestionSetZh(issueText);
+}
+
 async function requestAiGeneratedQuestions(issueText) {
   const config = getAiQuestionConfig();
   if (!config || !config.endpoint || !config.model || !config.apiKey) return null;
+
+  const isEn = I18n.getLocale() === "en";
+  const systemPrompt = isEn
+    ? 'Generate 3–4 multiple-choice clarifying questions for an I Ching reading based on the user\'s issue. Return pure JSON only, no markdown. Schema: {"questions":[{"id":"...","title":"...","hint":"...","options":[{"value":"...","label":"...","description":"..."}]}]}. Three substantive options per question; tone calm and respectful. The client will append an "Unclear" option.'
+    : "你要为周易解读前置问答生成 3 到 4 个和用户事由相关的选择题。返回纯 JSON，不要 markdown。格式：{\"questions\":[{\"id\":\"...\",\"title\":\"...\",\"hint\":\"...\",\"options\":[{\"value\":\"...\",\"label\":\"...\",\"description\":\"...\"}]}]}。每题 3 个有效选项即可，语气温和，后续系统会自动补一个“不明确”选项。";
+  const userPrompt = isEn
+    ? `Topic / question: ${issueText || t("issueUnset")}. Output clarifying questions suitable for context-gathering before interpretation.`
+    : `所问事由：${issueText || t("issueUnset")}。请输出适合进一步澄清背景的选择题。`;
 
   const response = await fetch(config.endpoint, {
     method: "POST",
@@ -493,12 +758,11 @@ async function requestAiGeneratedQuestions(issueText) {
       messages: [
         {
           role: "system",
-          content:
-            "你要为周易解读前置问答生成 3 到 4 个和用户事由相关的选择题。返回纯 JSON，不要 markdown。格式：{\"questions\":[{\"id\":\"...\",\"title\":\"...\",\"hint\":\"...\",\"options\":[{\"value\":\"...\",\"label\":\"...\",\"description\":\"...\"}]}]}。每题 3 个有效选项即可，语气温和，后续系统会自动补一个“不明确”选项。",
+          content: systemPrompt,
         },
         {
           role: "user",
-          content: `所问事由：${issueText || "（无指定事由）"}。请输出适合进一步澄清背景的选择题。`,
+          content: userPrompt,
         },
       ],
       response_format: { type: "json_object" },
@@ -520,11 +784,11 @@ async function getClarifyingQuestions(issueText) {
     const aiQuestions = await requestAiGeneratedQuestions(issueText);
     if (aiQuestions?.length) {
       return {
-        source: "AI 自动生成",
+        source: t("sources.ai"),
         questions: aiQuestions.map((question, index) => ({
           ...question,
           id: question.id || `ai_question_${index + 1}`,
-          options: [...(question.options || []).slice(0, 3), DEFAULT_UNKNOWN_OPTION],
+          options: [...(question.options || []).slice(0, 3), getDefaultUnknownOption()],
         })),
       };
     }
@@ -533,7 +797,7 @@ async function getClarifyingQuestions(issueText) {
   }
 
   return {
-    source: "本地智能生成",
+    source: t("sources.local"),
     questions: buildLocalQuestionSet(issueText),
   };
 }
@@ -545,11 +809,11 @@ function buildAnswerSummary(answerMap) {
 }
 
 function getLinePolarityText(line) {
-  return line.binary === 1 ? "阳" : "阴";
+  return line.binary === 1 ? t("polarity.yang") : t("polarity.yin");
 }
 
 function getLineMovingText(line) {
-  return line.isMoving ? "变爻" : "静爻";
+  return line.isMoving ? t("lineMotion.moving") : t("lineMotion.resting");
 }
 
 function getMovingLinePositions(linesList) {
@@ -561,27 +825,23 @@ function getMovingLinePositions(linesList) {
 function getInterpretationRule(linesList) {
   const movingPositions = getMovingLinePositions(linesList);
   const count = movingPositions.length;
-
-  if (count === 0) return "0个变爻：以本卦卦辞为主";
-  if (count === 1) return "1个变爻：以变爻爻辞为主";
-  if (count === 2) return "2个变爻：以两个变爻爻辞为主，以下爻为先";
-  if (count === 3) return "3个变爻：本卦与变卦并看，以本卦为主、变卦为辅";
-  if (count === 4) return "4个变爻：以两个不变爻爻辞为主，以下爻为先";
-  if (count === 5) return "5个变爻：以唯一不变爻爻辞为主";
-  return "6个变爻：若为乾坤看用九用六，其余以变卦卦辞为主";
+  const idx = Math.min(Math.max(count, 0), 6);
+  const rules = I18n.ZHOUYI_STRINGS[I18n.getLocale()].interpretationRules;
+  return rules[idx];
 }
 
-function buildDirectTemplatePrompt(context) {
-  const issueText = issueInput.value.trim() || "（未指定事由）";
+function buildDirectTemplatePromptZh(context) {
+  const issueText = issueInput.value.trim() || t("issueUnsetAlt");
   const { lines: sixLines, related } = context;
   const primaryOrder = hexagramOrders[related.primary.name] || "?";
   const changedOrder = hexagramOrders[related.changed.name] || "?";
   const movingPositions = getMovingLinePositions(sixLines);
-  const movingPositionText = movingPositions.length ? movingPositions.join("、") : "无";
+  const movingPositionText = movingPositions.length ? movingPositions.join("、") : t("positionsNone");
+  const names = getLineNames();
   const lineDetails = sixLines
     .map(
       (line, index) =>
-        `第${index + 1}爻（${lineNames[index]}）：${getLinePolarityText(line)}，${getLineMovingText(line)}`,
+        `第${index + 1}爻（${names[index]}）：${getLinePolarityText(line)}，${getLineMovingText(line)}`,
     )
     .join("\n");
 
@@ -613,21 +873,74 @@ ${lineDetails}
 请用通俗易懂的现代白话解释，避免晦涩术语，让没有易学基础的人也能理解；态度客观中立，不偏不倚地分析卦象含义，如实呈现吉凶利弊。`;
 }
 
-function buildPrompt(context, wizardAnswers) {
+function buildDirectTemplatePromptEn(context) {
+  const issueText = issueInput.value.trim() || t("issueUnsetAlt");
+  const { lines: sixLines, related } = context;
+  const primaryOrder = hexagramOrders[related.primary.name] || "?";
+  const changedOrder = hexagramOrders[related.changed.name] || "?";
+  const movingPositions = getMovingLinePositions(sixLines);
+  const movingPositionText = movingPositions.length ? movingPositions.join(", ") : t("positionsNone");
+  const names = getLineNames();
+  const lineDetails = sixLines
+    .map(
+      (line, index) =>
+        `${names[index]} — ${getLinePolarityText(line)}, ${getLineMovingText(line)} (position ${index + 1} from bottom)`,
+    )
+    .join("\n");
+
+  const pn = I18n.HEXAGRAM_TITLE_EN[related.primary.name] || related.primary.name;
+  const cn = I18n.HEXAGRAM_TITLE_EN[related.changed.name] || related.changed.name;
+
+  return `You are a professional I Ching interpreter. Explain in clear modern English without jargon; stay neutral and balanced about upsides and downsides.
+The querent cast three coins six times (classical method). Interpret using the data below.
+
+Question / topic
+${issueText}
+
+Hexagram data
+\t•\tPrimary hexagram: ${pn} (${related.primary.name}) — King Wen #${primaryOrder}
+\t•\tLine code (bottom → top, 1=yang, 0=yin): ${context.primaryBits.join("")}
+\t•\tTransformed hexagram: ${cn} (${related.changed.name}) — King Wen #${changedOrder}
+\t•\tMoving line positions (from bottom): ${movingPositionText}
+\t•\tLine-by-line (bottom → top):
+${lineDetails}
+\t•\tInterpretation rule hint: ${getInterpretationRule(sixLines)}
+
+Related patterns
+\t•\tMutual: ${related.mutual.name}
+\t•\tOpposite: ${related.opposite.name}
+\t•\tInverted (overall): ${related.reversed.name}
+
+Please structure your answer as:
+1) Overall reading of the primary hexagram
+2) How this connects to the querent’s situation
+3) Moving lines (if any) and what changes
+4) Transformed hexagram trend
+5) Brief note from mutual / opposite / inverted
+6) Practical, grounded guidance`;
+}
+
+function buildDirectTemplatePrompt(context) {
+  return I18n.getLocale() === "en" ? buildDirectTemplatePromptEn(context) : buildDirectTemplatePromptZh(context);
+}
+
+function buildPromptZh(context, wizardAnswers) {
   const { lines: sixLines, movingLines, hasMoving, related } = context;
-  const issueText = issueInput.value.trim() || "（无指定事由）";
-  const styleChoice = wizardAnswers.reading_style?.label || "平衡洞察型";
+  const issueText = issueInput.value.trim() || t("issueUnset");
+  const styleKey = wizardAnswers.reading_style?.value || "balanced";
+  const styleChoice =
+    wizardAnswers.reading_style?.label ||
+    getStyleQuestion().options.find((o) => o.value === styleKey)?.label ||
+    "平衡洞察型";
   const answerSummary = buildAnswerSummary(wizardAnswers);
 
-  const styleGuidance = {
-    温柔安抚型:
-      "整体语气请更柔和、更有安抚感，优先照顾提问者的感受，再给出判断与建议。",
-    平衡洞察型:
-      "整体语气请兼顾温度与判断，既要说透关键，也要保留分寸与缓冲。",
-    清醒点破型:
-      "整体语气可以更直接一些，但仍要克制有礼，不要让人感到被压迫或训斥。",
+  const styleGuidanceZh = {
+    gentle: "整体语气请更柔和、更有安抚感，优先照顾提问者的感受，再给出判断与建议。",
+    balanced: "整体语气请兼顾温度与判断，既要说透关键，也要保留分寸与缓冲。",
+    direct: "整体语气可以更直接一些，但仍要克制有礼，不要让人感到被压迫或训斥。",
   };
 
+  const names = getLineNames();
   const lineSection = sixLines
     .map((line, index) => {
       const yinYang = line.binary === 1 ? "阳爻" : "阴爻";
@@ -635,21 +948,15 @@ function buildPrompt(context, wizardAnswers) {
         ? `，为动爻，变化后转为${line.changedBinary === 1 ? "阳爻" : "阴爻"}`
         : "，为静爻";
 
-      return `${lineNames[index]}：${line.label}（数值 ${line.value}），本象为${yinYang}${movingText}。`;
+      return `${names[index]}：${line.label}（数值 ${line.value}），本象为${yinYang}${movingText}。`;
     })
     .join("\n");
 
   const movingSummary = hasMoving
     ? movingLines.map((item) => `${item.name}${item.label}，由${item.from}变${item.to}`).join("；")
-    : "本卦无动爻，以本卦卦义、卦德、卦势为主，不强行解变。";
+    : t("noMovingLines");
 
-  const hexagramSection = [
-    related.primary,
-    related.changed,
-    related.mutual,
-    related.opposite,
-    related.reversed,
-  ]
+  const hexagramSection = [related.primary, related.changed, related.mutual, related.opposite, related.reversed]
     .map(
       (item) =>
         `${item.label}：${item.name}卦（${item.brief}）；上卦 ${item.upperTrigram}，下卦 ${item.lowerTrigram}；六爻二进制（自下而上）为 ${item.bits.join(
@@ -679,7 +986,7 @@ function buildPrompt(context, wizardAnswers) {
 
 本次指定的解读风格：
 ${styleChoice}
-补充语气要求：${styleGuidance[styleChoice] || styleGuidance["平衡洞察型"]}
+补充语气要求：${styleGuidanceZh[styleKey] || styleGuidanceZh.balanced}
 
 本次摇卦原始信息：
 所问事由：${issueText}
@@ -715,8 +1022,113 @@ ${hexagramSection}
 7. 请在最后附一个“如果我是提问者，接下来 7 天可以怎样观察现实变化”的清单，帮助验证这次解读是否贴近现实。`;
 }
 
+function buildPromptEn(context, wizardAnswers) {
+  const { lines: sixLines, movingLines, hasMoving, related } = context;
+  const issueText = issueInput.value.trim() || t("issueUnset");
+  const styleKey = wizardAnswers.reading_style?.value || "balanced";
+  const styleChoice =
+    wizardAnswers.reading_style?.label ||
+    getStyleQuestion().options.find((o) => o.value === styleKey)?.label ||
+    "Balanced insight";
+  const answerSummary = buildAnswerSummary(wizardAnswers);
+
+  const styleGuidanceEn = {
+    gentle:
+      "Keep the tone soft and grounding—care for the querent’s feelings first, then offer judgment and advice.",
+    balanced: "Balance warmth and clarity; be honest without harshness; leave room for nuance.",
+    direct: "Be clear about the crux while staying respectful—no lecturing or intimidation.",
+  };
+
+  const names = getLineNames();
+  const lineSection = sixLines
+    .map((line, index) => {
+      const yinYang = line.binary === 1 ? t("yangLine") : t("yinLine");
+      const movingText = line.isMoving
+        ? `; moving → becomes ${line.changedBinary === 1 ? t("yangLine") : t("yinLine")}`
+        : "; resting line";
+
+      return `${names[index]}: ${line.label} (value ${line.value}), ${yinYang}${movingText}.`;
+    })
+    .join("\n");
+
+  const movingSummary = hasMoving
+    ? movingLines
+        .map((item) => `${item.name} ${item.label}; from ${item.from} to ${item.to}`)
+        .join("; ")
+    : t("noMovingLines");
+
+  const hexagramSection = [related.primary, related.changed, related.mutual, related.opposite, related.reversed]
+    .map((item) => {
+      const enTitle = I18n.HEXAGRAM_TITLE_EN[item.name];
+      const labelName = enTitle ? `${enTitle} (${item.name})` : item.name;
+      return `${item.label}: ${labelName} — ${item.brief}; upper trigram ${item.upperTrigram}, lower trigram ${item.lowerTrigram}; six lines bottom→top: ${item.bits.join("")}; code ${item.key}.`;
+    })
+    .join("\n");
+
+  return `You are an experienced I Ching reader—solid on meaning, imagery, line dynamics, mutual/opposite/inverted hexagrams—and you communicate with warmth, patience, and restraint. From the coin toss below, write a reading that feels understood, not judged.
+
+Tone / bedside manner:
+1. Stay professional, calm, and kind—like a seasoned reader speaking carefully with one person.
+2. You may name risks, but leave room; avoid crushing or fatalistic wording.
+3. Avoid bossy commands; prefer invitations: “this may be nudging you toward…”, “for now it may help to…”
+4. Acknowledge difficulty while pointing to workable next steps and patience.
+
+Technical expectations:
+1. Integrate name, image, relationship of upper/lower trigrams, moving lines, mutual, opposite, inverted (overall) hexagram.
+2. Separate: primary frame; moving lines as change; transformed hexagram as where things land.
+3. Use mutual for inner mechanism, opposite as contrast/reversal cue, inverted for reversed perspective.
+4. Few moving lines: emphasize them; many moving lines: prioritize, don’t flatten everything equally.
+5. Explain line by line—not only the hexagram title.
+6. Cover helpful factors, cautions, what fits now, what not to rush, near and mid-term tendencies.
+7. Avoid deterministic destiny talk; don’t sound like a verdict.
+8. If context is thin, add brief scenario hooks (work, love, money, relationships, decisions).
+9. For health, legal, investment: remind them to consult professionals.
+
+Chosen reading tone:
+${styleChoice}
+Extra tone note: ${styleGuidanceEn[styleKey] || styleGuidanceEn.balanced}
+
+Cast details:
+Question / topic: ${issueText}
+Follow-up choices:
+${answerSummary}
+Method: three coins, six casts, bottom to top.
+
+Lines:
+${lineSection}
+
+Moving lines:
+${movingSummary}
+
+Related hexagrams:
+${hexagramSection}
+
+Output structure (natural language, not a stiff report):
+1) Overall judgment
+2) Primary hexagram in depth
+3) Moving lines, one by one
+4) Transformed hexagram trend
+5) Mutual / opposite / inverted angles
+6) Scenario notes (work, love, collaboration, money/decision at minimum)
+7) Action suggestions
+8) Limits of divination / gentle disclaimers
+
+Extra prompts:
+- Open with a short acknowledgment of how they might feel.
+- Offer one core sentence verdict, softly worded.
+- Name one “best next move” and one “don’t rush this yet.”
+- Give three concrete behavioral suggestions with companion-like tone.
+- Call out patterns such as hard-then-easy, reversals, delays, friction, helpers, blockers—gently.
+- Close with grounding reassurance without hype or fear.
+- Finish with a 7-day observation checklist to test whether the reading matches life.`;
+}
+
+function buildPrompt(context, wizardAnswers) {
+  return I18n.getLocale() === "en" ? buildPromptEn(context, wizardAnswers) : buildPromptZh(context, wizardAnswers);
+}
+
 function updateSummary() {
-  progress.textContent = `${lines.length} / 6 爻`;
+  progress.textContent = `${lines.length} / 6 ${t("progressUnit")}`;
 
   const complete = lines.length === 6;
   tossButton.disabled = complete;
@@ -726,14 +1138,15 @@ function updateSummary() {
   copyPromptButton.disabled = !promptOutput.value.trim();
 
   if (!complete) {
-    hint.textContent = lines.length === 0 ? "请静心后开始摇卦" : `还需 ${6 - lines.length} 次`;
-    primaryMeta.textContent = "完成六爻后显示";
-    changedMeta.textContent = "若无变爻，则与本卦相同";
-    primaryName.textContent = "待成卦";
-    changedName.textContent = "待成卦";
-    primaryBrief.textContent = "卦成之后见其名与意";
-    changedBrief.textContent = "动而后变，其势方显";
-    promptHint.textContent = "完成六爻后可生成";
+    hint.textContent =
+      lines.length === 0 ? t("hints.startCalm") : t("hints.needMore", { n: 6 - lines.length });
+    primaryMeta.textContent = t("hex.metaPending");
+    changedMeta.textContent = t("hex.metaNoChange");
+    primaryName.textContent = t("hex.namePending");
+    changedName.textContent = t("hex.namePending");
+    primaryBrief.textContent = t("hex.briefPrimaryPending");
+    changedBrief.textContent = t("hex.briefChangedPending");
+    promptHint.textContent = t("prompt.hintIdle");
     renderHexagram(primaryHexagram, lines.map((line) => line.binary));
     renderHexagram(changedHexagram, lines.map((line) => line.changedBinary));
     return;
@@ -743,25 +1156,21 @@ function updateSummary() {
   const primaryBits = context.primaryBits;
   const changedBits = context.changedBits;
   const hasMoving = context.hasMoving;
-  const movingMarks = lines.map((line) => (line.isMoving ? "变爻" : ""));
+  const movingMarks = lines.map((line) => (line.isMoving ? t("hex.moving") : ""));
+  const pri = context.related.primary.name;
+  const chg = context.related.changed.name;
 
   renderHexagram(primaryHexagram, primaryBits, movingMarks);
   renderHexagram(changedHexagram, changedBits);
 
-  primaryMeta.textContent = `${context.related.primary.name}卦`;
-  primaryName.textContent = `${context.related.primary.name}卦`;
+  primaryMeta.textContent = formatHexCardTitle(pri);
+  primaryName.textContent = formatHexCardTitle(pri);
   primaryBrief.textContent = context.related.primary.brief;
-  changedMeta.textContent = hasMoving
-    ? `${context.related.changed.name}卦`
-    : `${context.related.primary.name}卦（无变爻）`;
-  changedName.textContent = hasMoving
-    ? `${context.related.changed.name}卦`
-    : `${context.related.primary.name}卦`;
-  changedBrief.textContent = hasMoving
-    ? context.related.changed.brief
-    : `${context.related.primary.brief}，此局以本卦为主`;
-  hint.textContent = hasMoving ? "摇卦完成，已生成本卦与变卦" : "摇卦完成，本卦无变爻";
-  promptHint.textContent = "可生成并复制给任意生成式 AI";
+  changedMeta.textContent = hasMoving ? formatHexCardTitle(chg) : `${formatHexCardTitle(pri)} ${t("hex.noMovingNote")}`;
+  changedName.textContent = hasMoving ? formatHexCardTitle(chg) : formatHexCardTitle(pri);
+  changedBrief.textContent = hasMoving ? context.related.changed.brief : `${context.related.primary.brief}${t("hex.primaryOnlySuffix")}`;
+  hint.textContent = hasMoving ? t("hints.tossDoneMoving") : t("hints.tossDoneStill");
+  promptHint.textContent = t("hints.promptReady");
 }
 
 function addLine() {
@@ -772,8 +1181,9 @@ function addLine() {
   const line = describeLine(sum);
 
   lines.push(line);
+  lastCastCoins = values;
   renderCoins(values);
-  lineResult.textContent = `本次为 ${line.label}（${sum}）`;
+  lineResult.textContent = t("line.result", { label: line.label, sum });
   renderRecords();
   updateSummary();
 }
@@ -791,7 +1201,7 @@ function openWizard() {
 
 function getWizardSteps() {
   if (!wizardState) return [];
-  return [styleQuestion, ...wizardState.dynamicQuestions];
+  return [getStyleQuestion(), ...wizardState.dynamicQuestions];
 }
 
 function getCurrentWizardQuestion() {
@@ -837,14 +1247,18 @@ function renderWizardStep() {
   const question = getCurrentWizardQuestion();
   const totalSteps = steps.length;
 
-  wizardStepText.textContent = `第 ${wizardState.currentStep + 1} 步 / 共 ${totalSteps} 步`;
+  wizardStepText.textContent = t("wizard.step", {
+    current: wizardState.currentStep + 1,
+    total: totalSteps,
+  });
   wizardSourceText.textContent = wizardState.questionSource;
   wizardQuestionTitle.textContent = question.title;
   wizardQuestionHint.textContent = question.hint || "";
   renderWizardOptions(question);
 
   wizardPrevButton.disabled = wizardState.currentStep === 0;
-  wizardNextButton.textContent = wizardState.currentStep === totalSteps - 1 ? "生成提示词" : "下一步";
+  wizardNextButton.textContent =
+    wizardState.currentStep === totalSteps - 1 ? t("wizard.generate") : t("wizard.next");
 }
 
 function moveWizardStep(direction) {
@@ -862,13 +1276,13 @@ function moveWizardStep(direction) {
 async function startPromptWizard() {
   const context = getReadingContext();
   if (!context) {
-    promptOutput.value = "请先完成六次摇卦，再生成解读提示词。";
-    promptHint.textContent = "当前卦象未完成";
+    promptOutput.value = t("hints.finishSixFirst");
+    promptHint.textContent = t("hints.incomplete");
     copyPromptButton.disabled = false;
     return;
   }
 
-  promptHint.textContent = "正在准备补充问题…";
+  promptHint.textContent = t("wizard.prepQuestions");
   promptButton.disabled = true;
 
   const issueText = issueInput.value.trim();
@@ -877,26 +1291,27 @@ async function startPromptWizard() {
   wizardState = {
     context,
     currentStep: 0,
-    questionSource: `${questionData.source}，每题均可选“不明确”`,
+    questionSource: t("wizard.sourceNote", { source: questionData.source }),
     dynamicQuestions: questionData.questions.map((question) => ({
       ...question,
-      options: question.options.some((option) => option.value === DEFAULT_UNKNOWN_OPTION.value)
+      options: question.options.some((option) => option.value === "不明确" || option.value === "unclear")
         ? question.options
-        : [...question.options, DEFAULT_UNKNOWN_OPTION],
+        : [...question.options, getDefaultUnknownOption()],
     })),
     answers: {},
   };
 
   promptButton.disabled = false;
-  promptHint.textContent = "请先完成弹窗问答";
+  promptHint.textContent = t("wizard.finishWizardFirst");
   openWizard();
   renderWizardStep();
 }
 
 function finalizePromptFromWizard() {
-  promptOutput.value = buildPrompt(wizardState.context, wizardState.answers);
+  const context = getReadingContext() || wizardState.context;
+  promptOutput.value = buildPrompt(context, wizardState.answers);
   promptOutput.scrollTop = 0;
-  promptHint.textContent = "提示词已生成，可直接复制使用";
+  promptHint.textContent = t("wizard.genDone");
   copyPromptButton.disabled = false;
   closeWizard();
 }
@@ -904,15 +1319,15 @@ function finalizePromptFromWizard() {
 function generateDirectTemplatePrompt() {
   const context = getReadingContext();
   if (!context) {
-    promptOutput.value = "请先完成六次摇卦，再按固定模板生成提示词。";
-    promptHint.textContent = "当前卦象未完成";
+    promptOutput.value = t("hints.finishSixDirect");
+    promptHint.textContent = t("hints.incomplete");
     copyPromptButton.disabled = false;
     return;
   }
 
   promptOutput.value = buildDirectTemplatePrompt(context);
   promptOutput.scrollTop = 0;
-  promptHint.textContent = "固定模板提示词已生成";
+  promptHint.textContent = t("hints.templateDone");
   copyPromptButton.disabled = false;
 }
 
@@ -922,25 +1337,26 @@ async function copyPrompt() {
 
   try {
     await navigator.clipboard.writeText(text);
-    promptHint.textContent = "提示词已复制";
+    promptHint.textContent = t("hints.copied");
   } catch {
     promptOutput.focus();
     promptOutput.select();
-    promptHint.textContent = "复制受限，已帮你选中文本";
+    promptHint.textContent = t("hints.copyFail");
   }
 }
 
 function resetAll() {
   lines = [];
+  lastCastCoins = null;
   closeWizard();
-  coins.innerHTML = '<div class="coin-placeholder">等待摇卦</div>';
+  coins.innerHTML = `<div class="coin-placeholder">${t("coins.waiting")}</div>`;
   records.innerHTML = "";
-  lineResult.textContent = "尚未生成爻象";
+  lineResult.textContent = t("line.noneYet");
   promptOutput.value = "";
-  primaryName.textContent = "待成卦";
-  changedName.textContent = "待成卦";
-  primaryBrief.textContent = "卦成之后见其名与意";
-  changedBrief.textContent = "动而后变，其势方显";
+  primaryName.textContent = t("hex.namePending");
+  changedName.textContent = t("hex.namePending");
+  primaryBrief.textContent = t("hex.briefPrimaryPending");
+  changedBrief.textContent = t("hex.briefChangedPending");
   renderHexagram(primaryHexagram, []);
   renderHexagram(changedHexagram, []);
   updateSummary();
@@ -978,4 +1394,37 @@ wizardOverlay.addEventListener("click", (event) => {
   if (event.target === wizardOverlay) closeWizard();
 });
 
+function refreshCoinFacesForLocale() {
+  if (lastCastCoins) {
+    renderCoins(lastCastCoins);
+  } else if (lines.length === 0) {
+    coins.innerHTML = `<div class="coin-placeholder">${t("coins.waiting")}</div>`;
+  }
+}
+
+function updateLangToggleLabel() {
+  const isZh = I18n.getLocale() === "zh";
+  langToggle.textContent = isZh ? t("lang.switchToEn") : t("lang.switchToZh");
+}
+
+function initLocaleUi() {
+  I18n.setLocale(I18n.getLocale());
+  I18n.applyPageLocale();
+  updateLangToggleLabel();
+}
+
+if (langToggle) {
+  langToggle.addEventListener("click", () => {
+    const next = I18n.getLocale() === "en" ? "zh" : "en";
+    I18n.setLocale(next);
+    I18n.applyPageLocale();
+    updateLangToggleLabel();
+    renderRecords();
+    refreshCoinFacesForLocale();
+    updateSummary();
+    if (wizardState) renderWizardStep();
+  });
+}
+
+initLocaleUi();
 resetAll();
