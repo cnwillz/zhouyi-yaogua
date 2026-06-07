@@ -1,4 +1,4 @@
-# Zhouyi — Online I Ching Coin Oracle
+# Zhouyi — Online I Ching Coin Oracle 
 
 A lightweight, client-side web app for **six-line I Ching divination** using the classical **three-coin method**. Cast lines from bottom to top, see the primary and transformed hexagrams, and generate structured prompts for large language models (optional).
 
